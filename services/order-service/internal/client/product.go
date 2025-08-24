@@ -3,10 +3,14 @@ package client
 import (
 	"context"
 	"log"
+
+	"order-service/internal/proto"
+
+	"google.golang.org/grpc"
 )
 
 type ProductServiceClient struct {
-	Client proto.NewProductServiceClient
+	Client proto.ProductServiceClient
 }
 
 func NewProductServiceClient(url string) *ProductServiceClient {
@@ -15,7 +19,7 @@ func NewProductServiceClient(url string) *ProductServiceClient {
 		log.Fatalf("failed to connect to product service: %v", err)
 	}
 	return &ProductServiceClient{
-		Client: proto.NewProductServiceClient(conn)
+		Client: proto.NewProductServiceClient(conn),
 	}
 }
 
@@ -26,7 +30,7 @@ func (c *ProductServiceClient) FindOne(productId int64) (*proto.FindOneResponse,
 	return c.Client.FindOne(context.Background(),req)
 }
 
-func (c *ProductServiceClient) DecreaseStock (productId int64, orderId int64, quantity int64) (*proto.DecreaseStockResponse){3
+func (c *ProductServiceClient) DecreaseStock(productId int64, orderId int64, quantity int64) (*proto.DecreaseStockResponse, error){
 	req :=  &proto.DecreaseStockRequest{
 		Id : productId,
 		OrderId : orderId,

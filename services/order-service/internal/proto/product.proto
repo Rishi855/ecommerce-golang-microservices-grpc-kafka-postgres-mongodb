@@ -7,7 +7,7 @@ option go_package = "./internal/proto";
 service ProductService{
     rpc CreateProduct(CreateProductRequest) returns (CreateProductResponse);
     rpc FindOne(FindOneRequest) returns (FindOneResponse);
-    rpc DecreateStock (DecreaseStockRequest) returns (DecreaseStockResponse);
+    rpc DecreaseStock (DecreaseStockRequest) returns (DecreaseStockResponse);
 }
 
 message CreateProductRequest{

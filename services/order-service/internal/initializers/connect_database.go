@@ -1,4 +1,4 @@
-package initializer
+package initializers
 
 import (
     "fmt"
@@ -34,6 +34,6 @@ func ConnectDatabase() *gorm.DB {
         log.Fatalln(err)
     }
 
-    db.AutoMigrate(&model.User{}, &model.Admin{})
+    db.AutoMigrate(&model.Order{})
     return db
 }

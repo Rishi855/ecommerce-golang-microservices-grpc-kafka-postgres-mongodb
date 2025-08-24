@@ -6,82 +6,79 @@ import (
 
 	"order-service/internal/model"
 	"order-service/internal/proto"
+	"order-service/internal/client"
 
 	"gorm.io/gorm"
 )
 
 type OrderHandler struct {
 	db            *gorm.DB
-	productClient proto.ProductServiceClient
+	ProductClient *client.ProductServiceClient
 	proto.UnimplementedOrderServiceServer
 }
 
-func NewOrderHandler(db *gorm.DB, productClient proto.ProductServiceClient) *OrderHandler {
+func NewOrderHandler(db *gorm.DB, productClient *client.ProductServiceClient) *OrderHandler {
 	return &OrderHandler{
 		db:            db,
-		productClient: productClient,
+		ProductClient: productClient,
 	}
 }
 
 func (h *OrderHandler) CreateOrder(ctx context.Context, req *proto.CreateOrderRequest) (*proto.CreateOrderResponse, error) {
-	product, err := h.productClient.FindOne(ctx, &proto.FindOneRequest{Id: req.ProductId})
+
+	productResp, err := h.ProductClient.FindOne(req.ProductId)
 	if err != nil {
 		return &proto.CreateOrderResponse{
-			Status: http.StatusBadGateway,
+			Status: int64(http.StatusBadGateway),
 			Error:  err.Error(),
 		}, nil
 	}
 
-	if product.Status >= http.StatusNotFound {
+	if productResp.Status >= int64(http.StatusNotFound) {
 		return &proto.CreateOrderResponse{
-			Status: product.Status,
-			Error:  product.Error,
+			Status: productResp.Status,
+			Error:  productResp.Error,
 		}, nil
 	}
 
-	if product.Data.Stock <= 0 {
+	if productResp.Data == nil || productResp.Data.Stock <= 0 {
 		return &proto.CreateOrderResponse{
-			Status: http.StatusBadRequest,
+			Status: int64(http.StatusBadRequest),
 			Error:  "Stock is low",
 		}, nil
 	}
 
 	order := model.Order{
-		Price:     product.Data.Price,
-		ProductId: product.Data.Id,
+		Price:     productResp.Data.Price,
+		ProductId: productResp.Data.Id,
 		UserId:    req.UserId,
 	}
 
 	if err := h.db.Create(&order).Error; err != nil {
 		return &proto.CreateOrderResponse{
-			Status: http.StatusInternalServerError,
+			Status: int64(http.StatusInternalServerError),
 			Error:  err.Error(),
 		}, nil
 	}
 
-	res, err := h.productClient.DecreaseStock(ctx, &proto.DecreaseStockRequest{
-		Id:      order.ProductId,
-		OrderId: order.Id,
-		Quantity: req.Quantity,
-	})
-
-	if err != nil {
+	decResp, err := h.ProductClient.DecreaseStock(order.ProductId,order.Id,req.Quantity)
+	if err != nil {		_ = h.db.Delete(&model.Order{}, order.Id).Error
 		return &proto.CreateOrderResponse{
-			Status: http.StatusBadRequest,
+			Status: int64(http.StatusBadRequest),
 			Error:  err.Error(),
 		}, nil
 	}
 
-	if res.Status == "409" { // conflict
-		h.db.Delete(&model.Order{}, order.Id)
+	if decResp.Status == "409" { 
+		_ = h.db.Delete(&model.Order{}, order.Id).Error
 		return &proto.CreateOrderResponse{
-			Status: http.StatusConflict,
-			Error:  res.Error,
+			Status: int64(http.StatusConflict),
+			Error:  decResp.Error,
 		}, nil
 	}
 
 	return &proto.CreateOrderResponse{
-		Status: http.StatusCreated,
+		Status: int64(http.StatusCreated),
 		Id:     order.Id,
 	}, nil
 }
