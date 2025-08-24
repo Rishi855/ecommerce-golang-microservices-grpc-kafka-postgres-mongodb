@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"auth-service/internal/handler"
-	"auth-service/internal/initializer"
+	"auth-service/internal/initializers"
 	"auth-service/internal/proto"
 	"auth-service/internal/repository"
 	"auth-service/internal/service"
@@ -16,8 +16,8 @@ import (
 )
 
 func init() {
-	initializer.LoadEnv()
-	initializer.ConnectDatabase()
+	initializers.LoadEnv()
+	initializers.ConnectDatabase()
 }
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 	reflection.Register(grpcServer)
 
-	db := initializer.ConnectDatabase()
+	db := initializers.ConnectDatabase()
 
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo)
