@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "./internal/auth/proto";
+
+// Auth service definition
+service AuthService {
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    rpc AdminRegister(AdminRegisterRequest) returns (RegisterResponse);
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc AdminLogin(AdminLoginRequest) returns (LoginResponse);
+    rpc Validate(ValidateRequest) returns (ValidateResponse);
+}
+
+// ---------------------- Requests & Responses ----------------------
+
+// Normal user registration
+message RegisterRequest {
+    string username = 1;
+    string email = 2;
+    string password = 3;
+}
+
+message RegisterResponse {
+    int64 id = 1;
+    int64 status = 2;
+    string error = 3;
+}
+
+// Admin registration
+message AdminRegisterRequest {
+    string username = 1;
+    string password = 2;
+}
+
+// Admin login request
+message AdminLoginRequest {
+    string username = 1;
+    string password = 2;
+}
+
+// Normal login
+message LoginRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message LoginResponse {
+    string token = 1;
+    int64 status = 2;
+    string error = 3;
+}
+
+// Validate token
+message ValidateRequest {
+    string token = 1;
+}
+
+message ValidateResponse {
+    int64 status = 1;
+    string error = 2;
+    int64 userID = 3;
+}
