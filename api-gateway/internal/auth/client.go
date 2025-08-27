@@ -1,15 +1,15 @@
 package auth
 
 import (
-	"api-gateaway/internal/auth/proto"
+	"api-gateway/internal/auth/proto"
 
 	"google.golang.org/grpc"
 )
 
 type AuthClient struct {
-	AuthClient proto.AuthServiceClient
+	ServiceClient proto.AuthServiceClient
 }
 
 func NewAuthServiceClient(conn *grpc.ClientConn) *AuthClient {
-	return &AuthClient{AuthClient: proto.NewAuthServiceClient(conn)}
+	return &AuthClient{ServiceClient: proto.NewAuthServiceClient(conn)}
 }
