@@ -39,6 +39,6 @@ func (s *AuthMiddleware) ValidateToken(ctx *gin.Context) {
 		ctx.AbortWithError(http.StatusUnauthorized, err)
 		return
 	}
-	ctx.Set("UserId", res.UserID)
+	ctx.Set("userId", res.UserID)
 	ctx.Next()
 }

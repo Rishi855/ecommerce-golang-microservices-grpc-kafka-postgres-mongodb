@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"log"
+	// "log"
 	"net/http"
 
+	"order-service/internal/client"
 	"order-service/internal/model"
 	"order-service/internal/proto"
-	"order-service/internal/client"
 
 	"gorm.io/gorm"
 )
@@ -31,7 +33,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *proto.CreateOrderRe
 		return &proto.CreateOrderResponse{
 			Status: int64(http.StatusBadGateway),
 			Error:  err.Error(),
-		}, nil
+		}, nil 
 	}
 
 	if productResp.Status >= int64(http.StatusNotFound) {
@@ -40,11 +42,11 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *proto.CreateOrderRe
 			Error:  productResp.Error,
 		}, nil
 	}
-
-	if productResp.Data == nil || productResp.Data.Stock <= 0 {
+	log.Println("here order hander: ",productResp)
+	if productResp.Data == nil || productResp.Data.Stock < req.Quantity {
 		return &proto.CreateOrderResponse{
 			Status: int64(http.StatusBadRequest),
-			Error:  "Stock is low",
+			Error:  "Not enough stock",
 		}, nil
 	}
 
@@ -69,7 +71,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *proto.CreateOrderRe
 		}, nil
 	}
 
-	if decResp.Status == "409" { 
+	if decResp.Status == http.StatusConflict { 
 		_ = h.db.Delete(&model.Order{}, order.Id).Error
 		return &proto.CreateOrderResponse{
 			Status: int64(http.StatusConflict),

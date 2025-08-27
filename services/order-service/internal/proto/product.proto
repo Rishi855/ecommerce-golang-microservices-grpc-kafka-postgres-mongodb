@@ -25,8 +25,8 @@ message CreateProductResponse{
 message FindOneData{
     int64 id = 1;
     string name = 2;
-    int64 stock = 3;
-    int64 price = 4;
+    int64 price = 3;
+    int64 stock = 4;
 }
 
 message FindOneRequest{
@@ -46,6 +46,6 @@ message DecreaseStockRequest{
 }
 
 message DecreaseStockResponse{
-    string status = 1;
+    int64 status = 1;
     string error = 2;
 }

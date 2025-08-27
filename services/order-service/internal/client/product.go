@@ -27,7 +27,9 @@ func (c *ProductServiceClient) FindOne(productId int64) (*proto.FindOneResponse,
 	req := &proto.FindOneRequest{
 		Id : productId,
 	}
-	return c.Client.FindOne(context.Background(),req)
+	t,E := c.Client.FindOne(context.Background(),req)
+	log.Println(t)
+	return t,E
 }
 
 func (c *ProductServiceClient) DecreaseStock(productId int64, orderId int64, quantity int64) (*proto.DecreaseStockResponse, error){

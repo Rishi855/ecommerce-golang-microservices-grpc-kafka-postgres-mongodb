@@ -145,8 +145,8 @@ type FindOneData struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Stock         int64                  `protobuf:"varint,3,opt,name=stock,proto3" json:"stock,omitempty"`
-	Price         int64                  `protobuf:"varint,4,opt,name=price,proto3" json:"price,omitempty"`
+	Price         int64                  `protobuf:"varint,3,opt,name=price,proto3" json:"price,omitempty"`
+	Stock         int64                  `protobuf:"varint,4,opt,name=stock,proto3" json:"stock,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -195,16 +195,16 @@ func (x *FindOneData) GetName() string {
 	return ""
 }
 
-func (x *FindOneData) GetStock() int64 {
+func (x *FindOneData) GetPrice() int64 {
 	if x != nil {
-		return x.Stock
+		return x.Price
 	}
 	return 0
 }
 
-func (x *FindOneData) GetPrice() int64 {
+func (x *FindOneData) GetStock() int64 {
 	if x != nil {
-		return x.Price
+		return x.Stock
 	}
 	return 0
 }
@@ -375,7 +375,7 @@ func (x *DecreaseStockRequest) GetQuantity() int64 {
 
 type DecreaseStockResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	Status        int64                  `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
 	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -411,11 +411,11 @@ func (*DecreaseStockResponse) Descriptor() ([]byte, []int) {
 	return file_internal_proto_product_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *DecreaseStockResponse) GetStatus() string {
+func (x *DecreaseStockResponse) GetStatus() int64 {
 	if x != nil {
 		return x.Status
 	}
-	return ""
+	return 0
 }
 
 func (x *DecreaseStockResponse) GetError() string {
@@ -441,8 +441,8 @@ const file_internal_proto_product_proto_rawDesc = "" +
 	"\vFindOneData\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05stock\x18\x03 \x01(\x03R\x05stock\x12\x14\n" +
-	"\x05price\x18\x04 \x01(\x03R\x05price\" \n" +
+	"\x05price\x18\x03 \x01(\x03R\x05price\x12\x14\n" +
+	"\x05stock\x18\x04 \x01(\x03R\x05stock\" \n" +
 	"\x0eFindOneRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"i\n" +
 	"\x0fFindOneResponse\x12\x16\n" +
@@ -454,7 +454,7 @@ const file_internal_proto_product_proto_rawDesc = "" +
 	"\aorderId\x18\x02 \x01(\x03R\aorderId\x12\x1a\n" +
 	"\bquantity\x18\x03 \x01(\x03R\bquantity\"E\n" +
 	"\x15DecreaseStockResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\x12\x14\n" +
+	"\x06status\x18\x01 \x01(\x03R\x06status\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error2\xee\x01\n" +
 	"\x0eProductService\x12N\n" +
 	"\rCreateProduct\x12\x1d.product.CreateProductRequest\x1a\x1e.product.CreateProductResponse\x12<\n" +

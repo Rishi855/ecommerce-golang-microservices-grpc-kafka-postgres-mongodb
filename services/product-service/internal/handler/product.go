@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"product-service/internal/model"
@@ -49,16 +50,17 @@ func (h *ProductHandler) FindOne(ctx context.Context, req *proto.FindOneRequest)
 			Data:   nil,
 		}, nil
 	}
-
-	return &proto.FindOneResponse{
-		Status: http.StatusOK,
-		Error:  "",
-		Data: &proto.FindOneData{
+	t := proto.FindOneData{
 			Id:    found.Id,
 			Name:  found.Name,
 			Price: found.Price,
 			Stock: found.Stock,
-		},
+		}
+	log.Println("here product handler: ",found)
+	return &proto.FindOneResponse{
+		Status: http.StatusOK,
+		Error:  "",
+		Data: &t,
 	}, nil
 }
 
