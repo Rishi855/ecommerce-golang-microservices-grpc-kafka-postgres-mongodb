@@ -2,6 +2,7 @@ package main
 
 import (
 	"api-gateway/internal/auth"
+	"api-gateway/internal/product"
 	"log"
 
 	"github.com/gin-gonic/gin"
@@ -34,11 +35,15 @@ func main() {
 	authClient := auth.NewAuthServiceClient(authConn)
 	authHandler := auth.NewAuthHandler(authClient)
 
+	productClient := product.NewProductServiceClient(productConn)
+	productHandler := product.NewProductHandler(productClient)
+
 	r := gin.Default()
-	// middleware := auth.NewAuthMiddleware(authClient)
+	middleware := auth.NewAuthMiddleware(authClient)
 
 	// Setup auth routes
 	auth.SetupAuthRoute(r, authHandler)
+	product.SetupProductRoute(r,productHandler,middleware)
 	log.Println("Port :8000 is ready to use by external services")
 	r.Run(":8000")
 }
