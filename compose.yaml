@@ -17,6 +17,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
@@ -28,8 +32,11 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_LOG_RETENTION_MS: 3600000
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
     volumes:
@@ -42,17 +49,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
 
   kafka-init:
     image: confluentinc/cp-kafka:7.4.0
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     networks:
       - kafka-network
+    environment:
+      - LOG_DIR=/tmp/kafka-logs
+    volumes:
+      - kafka_init_data:/tmp/kafka-logs
     command: >
       bash -c "
         echo 'Waiting for Kafka to be ready...'
-        cub kafka-ready -b kafka:9092 1 30 &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --topic notification-events --partitions 1 --replication-factor 1 &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --topic logs.order-service --partitions 1 --replication-factor 1
       "
@@ -111,9 +126,9 @@ services:
     restart: on-failure
     command: ["sh", "-c", "until nc -z kafka 9092 && nc -z mongodb 27017; do echo waiting for kafka and mongodb; sleep 2; done; ./main"]
 
-  postgres:
+  auth-postgres:
     image: postgres:15-alpine
-    container_name: postgres
+    container_name: auth-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root
@@ -121,7 +136,26 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - auth_postgres_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  order-postgres:
+    image: postgres:15-alpine
+    container_name: order-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: order_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - order_postgres_data:/var/lib/postgresql/data
     networks:
       - microservices-network
     healthcheck:
@@ -136,7 +170,7 @@ services:
       dockerfile: Dockerfile
     container_name: auth-service
     environment:
-      - DB_HOST=postgres
+      - DB_HOST=auth-postgres
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=root
@@ -147,7 +181,7 @@ services:
     ports:
       - "50051:50051"
     depends_on:
-      postgres:
+      auth-postgres:
         condition: service_healthy
     networks:
       - microservices-network
@@ -157,7 +191,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    command: ["sh", "-c", "until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done; ./main"]
+    command: ["sh", "-c", "until nc -z auth-postgres 5432; do echo waiting for postgres; sleep 2; done; ./main"]
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    environment:
+      - DB_HOST=order-postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=root
+      - DB_NAME=order_db
+      - DB_SSLMODE=disable
+      - APP_PORT=50053
+      - KAFKA_BROKER=kafka:9092
+      - PRODUCT_SERVICE_URL=product-service:50052
+    ports:
+      - "50053:50053"
+    depends_on:
+      order-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - microservices-network
+      - kafka-network
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50053"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: ["sh", "-c", "until nc -z order-postgres 5432 && nc -z kafka 9092; do echo waiting for dependencies; sleep 2; done; ./main"]
 
   api-gateway:
     build:
@@ -191,4 +258,6 @@ volumes:
   zookeeper_data:
   kafka_data:
   mongodb_data:
-  postgres_data:
+  auth_postgres_data:
+  order_postgres_data:
+  kafka_init_data:
