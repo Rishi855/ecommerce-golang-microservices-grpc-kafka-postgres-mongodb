@@ -64,7 +64,7 @@ services:
     # NOTE: this command waits until Kafka's TCP port responds, then runs ./main
     command: ["sh", "-c", "until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done; ./main"]
 
-    # MongoDB
+  # MongoDB
   mongodb:
     image: mongo:6.0
     container_name: mongodb
@@ -97,6 +97,48 @@ services:
     restart: on-failure
     command: ["sh", "-c", "until nc -z kafka 9092 && nc -z mongodb 27017; do echo waiting for kafka and mongodb; sleep 2; done; ./main"]
 
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: auth_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=root
+      - DB_NAME=auth_db
+      - DB_SSLMODE=disable
+      - JWT_SECRET=3a1c8d9e7f2b45a6c9d01f8b1e2d34f7
+      - APP_PORT=50051
+    ports:
+      - "50051:50051"
+    depends_on:
+      - postgres
+    networks:
+      - microservices-network
+    restart: on-failure
+    command: ["sh", "-c", "until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done; ./main"]
+
 networks:
   kafka-network:
     driver: bridge
@@ -107,3 +149,4 @@ volumes:
   zookeeper_data:
   kafka_data:
   mongodb_data:
+  postgres_data:
