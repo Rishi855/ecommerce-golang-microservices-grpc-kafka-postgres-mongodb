@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper
+    networks:
+      - kafka-network
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - kafka-network
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - GRPC_PORT=:50055
+      - KAFKA_TOPIC=notification-events
+      - KAFKA_GROUP=notification-service-group
+    ports:
+      - "50055:50055"
+    depends_on:
+      - kafka
+      - zookeeper
+    networks:
+      - microservices-network
+    restart: on-failure
+    # NOTE: this command waits until Kafka's TCP port responds, then runs ./main
+    command: ["sh", "-c", "until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done; ./main"]
+
+    # MongoDB
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: logsdb
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - microservices-network
+
+  log-service:
+    build:
+      context: ./log-service
+      dockerfile: Dockerfile
+    container_name: log-service
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - MONGODB_URI=mongodb://mongodb:27017
+      - MONGODB_DATABASE=logsdb
+      - KAFKA_TOPIC=log-events
+      - KAFKA_GROUP=log-service-group
+    depends_on:
+      - kafka
+      - mongodb
+    networks:
+      - kafka-network
+      - microservices-network
+    restart: on-failure
+    command: ["sh", "-c", "until nc -z kafka 9092 && nc -z mongodb 27017; do echo waiting for kafka and mongodb; sleep 2; done; ./main"]
+
+networks:
+  kafka-network:
+    driver: bridge
+  microservices-network:
+    driver: bridge
+
+volumes:
+  zookeeper_data:
+  kafka_data:
+  mongodb_data:
