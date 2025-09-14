@@ -2,18 +2,21 @@ version: '3.8'
 
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_MAX_CLIENT_CNXNS: 0
     volumes:
-      - zookeeper_data:/var/lib/zookeeper
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
     networks:
       - kafka-network
       - microservices-network
     healthcheck:
-      test: ["CMD", "nc", "-z", "127.0.0.1", "2181"]
+      test: echo stat | nc localhost 2181
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,6 +37,12 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_DELETE_TOPIC_ENABLE: "true"
       KAFKA_LOG_RETENTION_MS: 3600000
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 60000
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -41,11 +50,12 @@ services:
       - "9092:9092"
     volumes:
       - kafka_data:/var/lib/kafka/data
+      - kafka_log:/var/log/kafka
     networks:
       - kafka-network
       - microservices-network
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test: nc -z localhost 9092 || exit 1
       interval: 10s
       timeout: 5s
       retries: 10
@@ -164,6 +174,25 @@ services:
       timeout: 5s
       retries: 5
 
+  product-postgres:
+    image: postgres:15-alpine
+    container_name: product-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: product_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - product_postgres_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   auth-service:
     build:
       context: ./auth-service
@@ -193,6 +222,34 @@ services:
       retries: 5
     command: ["sh", "-c", "until nc -z auth-postgres 5432; do echo waiting for postgres; sleep 2; done; ./main"]
 
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    environment:
+      - DB_HOST=product-postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=root
+      - DB_NAME=product_db
+      - DB_SSLMODE=disable
+      - APP_PORT=50052
+    ports:
+      - "50052:50052"
+    depends_on:
+      product-postgres:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50052"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: ["sh", "-c", "until nc -z product-postgres 5432; do echo waiting for postgres; sleep 2; done; ./main"]
+
   order-service:
     build:
       context: ./order-service
@@ -214,6 +271,8 @@ services:
       order-postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      product-service:
         condition: service_healthy
     networks:
       - microservices-network
@@ -256,8 +315,11 @@ networks:
 
 volumes:
   zookeeper_data:
+  zookeeper_log:
   kafka_data:
+  kafka_log:
   mongodb_data:
   auth_postgres_data:
   order_postgres_data:
+  product_postgres_data:
   kafka_init_data:

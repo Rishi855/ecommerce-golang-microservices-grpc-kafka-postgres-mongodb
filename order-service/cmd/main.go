@@ -22,16 +22,17 @@ func init() {
 
 func main() {
 	db := initializers.ConnectDatabase()
-	notificationProducer := events.NewProducer("localhost:9092",events.NOTIFICATION_TOPIC)
-	logProducer := events.NewProducer("localhost:9092",events.ORDER_LOGS_TOPIC)
+	kafkaBrokers := initializers.GetEnvWithDefault("KAFKA_BROKERS", "kafka:9092")
+	notificationProducer := events.NewProducer(kafkaBrokers, events.NOTIFICATION_TOPIC)
+	logProducer := events.NewProducer(kafkaBrokers, events.ORDER_LOGS_TOPIC)
 	defer notificationProducer.Close()
 	defer logProducer.Close()
 
-	// connect to product service (running on 50052 per your setup)
-	productClient := client.NewProductServiceClient("localhost:50052")
+	// connect to product service
+	productServiceHost := initializers.GetEnvWithDefault("PRODUCT_SERVICE_HOST", "product-service:50052")
+	productClient := client.NewProductServiceClient(productServiceHost)
 
 	orderHandler := handler.NewOrderHandler(db, productClient, notificationProducer, logProducer)
-
 
 	lis, err := net.Listen("tcp", ":50053")
 	if err != nil {
