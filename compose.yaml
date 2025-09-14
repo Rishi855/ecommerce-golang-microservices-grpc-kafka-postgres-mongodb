@@ -38,10 +38,24 @@ services:
       - kafka-network
       - microservices-network
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/9092 || exit 1"]
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 10s
       timeout: 5s
       retries: 10
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - kafka
+    networks:
+      - kafka-network
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...'
+        cub kafka-ready -b kafka:9092 1 30 &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --topic notification-events --partitions 1 --replication-factor 1 &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --topic logs.order-service --partitions 1 --replication-factor 1
+      "
 
   notification-service:
     build:
@@ -133,11 +147,37 @@ services:
     ports:
       - "50051:50051"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - microservices-network
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     command: ["sh", "-c", "until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done; ./main"]
+
+  # api-gateway:
+  #   build:
+  #     context: ./api-gateway
+  #     dockerfile: Dockerfile
+  #   container_name: api-gateway
+  #   environment:
+  #     - AUTH_SERVICE_URL=auth-service:50051
+  #     - PRODUCT_SERVICE_URL=product-service:50052
+  #     - ORDER_SERVICE_URL=order-service:50053
+  #     - GIN_MODE=debug
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     auth-service:
+  #       condition: service_healthy
+  #   networks:
+  #     - microservices-network
+  #   restart: on-failure
+  #   command: ["sh", "-c", "until nc -z auth-service 50051; do echo waiting for auth service; sleep 2; done; ./main"]
 
 networks:
   kafka-network:
